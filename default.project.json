@@ -1,0 +1,26 @@
+{
+  "name": "Project-Scary",
+  "tree": {
+    "$className": "DataModel",
+
+    "ReplicatedStorage": {
+        "$path": "src/ReplicatedStorage",
+        "$ignoreUnknownInstances": true
+    },
+
+    "ServerScriptService": {
+      "$path": "src/ServerScriptService",
+      "$ignoreUnknownInstances": true
+    },
+
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "ClientLoader": {
+          "$path": "src/ClientLoader"
+        }
+      },
+      "$ignoreUnknownInstances": true
+    }
+
+  }
+}
