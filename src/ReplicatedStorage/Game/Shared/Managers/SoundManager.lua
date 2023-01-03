@@ -1,11 +1,18 @@
 local Players = game.Players
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
 
 local Events = ReplicatedStorage.Events
 
 local UseSound = Events.Player.UseSound
 local Assets = ReplicatedStorage.Assets
 local Sounds = Assets.Sounds
+
+local Game_Folder = ReplicatedStorage.Game
+local Shared = Game_Folder.Shared
+
+local Shortcut = require(Shared.Utility.Shortcut)
 
 
 local SoundManager = {}
@@ -22,19 +29,45 @@ function SoundManager.Setup(player)
 	local self = setmetatable({},SoundManager)
 
 	self.CurrentSound = nil;
+	self.CurrentAmbient = nil;
 	self.SoundStatus = nil;
     self.PlayWalkingSound = true;
+	self.AmbientSounds = {};
     self.WalkingSoundIsPlaying = false;
     self.raycastParams = RaycastParams.new()
     self.raycastParams.FilterType = Enum.RaycastFilterType.Whitelist
-    self.raycastParams.FilterDescendantsInstances = {workspace.Map}
+    self.raycastParams.FilterDescendantsInstances = {workspace.Map,workspace.Terrain}
     self.raycastParams.IgnoreWater = true
     
     self.MaterialSound = {
         ["Wood"] = "Walk on Wood";
+		["Grass"] = "Walk on Grass";
+		["WoodPlanks"] = "Walk on Staircase"
     }
+	self.SoundVolume = {
+		["Walk on Wood"] = .25;
+		["Walk on Grass"] = .5;
+
+	}
 
 	return self
+end
+
+function SoundManager:RemoveSound(Name)
+
+	for SoundName,Table in pairs(self.AmbientSound) do
+		if SoundName == Name then
+			Table["Audio"]:Destroy()
+			return true
+		end
+	end
+
+	if Name == self.CurrentSound.Name then
+		self.CurrentSound:Destroy()
+		return true
+	end
+
+	return false
 end
 
 function SoundManager:PlaySoundFromService(Name,Object,Value,SoundData)
@@ -50,7 +83,12 @@ function SoundManager:PlaySoundFromService(Name,Object,Value,SoundData)
 			local Audio = Wanted_Audio:Clone()
 			Audio.Parent = Object
             -- Audio.TimePosition
-			self.CurrentSound = Audio
+			if not SoundData["Type"] then
+				self.CurrentSound = Audio
+			else
+				self.CurrentAmbient = Audio
+			end
+
             warn("Sound has been found ", Object.Name)
         
 
@@ -68,28 +106,97 @@ function SoundManager:PlaySoundFromService(Name,Object,Value,SoundData)
 		if Found == true then
 			break
 		end
-
-
 	end	
+
+	warn("Couldn't find the sound")
+	return nil
+end
+
+function SoundManager:Play(Sound,Data)
+	local VolumeTo = Data["Volume"] or 1
+	local Loop = Data["Loop"] or true
+	local TimeToWait = Data["Time"] or .5
+
+	
+	local ChangeVolume = {Volume = VolumeTo,Looped = Loop}
+	local TweenInformation = TweenInfo.new(TimeToWait)
+	
+	local Tween = TweenService:Create(Sound,TweenInformation,ChangeVolume)
+	Tween:Play()
+
+	
+	Tween.Completed:Connect(function()
+		warn("sound here the Volume ", Sound.Volume)
+		Tween:Destroy()
+	end)
+end
+
+function SoundManager:Stop(Sound,Data)
+	local VolumeTo = Data["Volume"] or 0
+	local TimeToWait = Data["Time"] or .5
+
+	local ChangeVolume = {Volume = VolumeTo}
+	local TweenInformation = TweenInfo.new(TimeToWait)
+
+	local Tween = TweenService:Create(Sound,TweenInformation,ChangeVolume)
+	Tween:Play()
+
+	warn("Changing Volume of ", Sound.Name)
+
+	Tween.Completed:Connect(function()
+		-- if Data["Destroy"] then
+		-- 	Sound:Destroy()
+		-- 	-- self.AmbientSound
+		-- end
+		task.wait(1)
+		Sound:Destroy()
+		Tween:Destroy()
+	end)
+end
+
+function SoundManager:StartAmbient(Name,Data)
+
+	if Shortcut:Getlength(self.AmbientSounds) <= 0 and not self.AmbientSounds[Name] then
+		local Sound = self:GetSoundFromService(Name, Data["Parent"],"Ambient")
+		Sound:Play()
+		self.AmbientSounds[Name] = Sound
+		--Sound.Parent = P
+		self:Play(Sound,Data)
+		warn("Playing from here ", Sound.Name)
+	elseif Shortcut:Getlength(self.AmbientSounds) > 0 and (not self.AmbientSounds[Name] or self.AmbientSounds[Name] == false) then
+		for _,Sounds in pairs(self.AmbientSounds) do
+
+			if Sounds then
+				self:Stop(Sounds,{["Volume"] = 0})
+			end
+
+			local Sound = self:GetSoundFromService(Name, Data["Parent"])
+			self.AmbientSounds[Name] = Sound
+			self:Play(Sound,Data)
+
+		end
+	end
+
 end
 
 function SoundManager:GroundSound(player,Material)
 
     if not self.WalkingSoundIsPlaying and self.MaterialSound[Material] and not player.Character:FindFirstChild(self.MaterialSound[Material]) then
-        local Sound = SoundManager:GetSoundFromService(self.MaterialSound[Material], player.Character)
+        local Sound = self:GetSoundFromService(self.MaterialSound[Material], player.Character,nil)
         warn("This is the Sound | ", player.Character.Humanoid:GetState())
-        Sound.Looped = true
-        Sound:Play()
+		Sound:Play()
+        self:Play(Sound,{["Volume"] = self.SoundVolume[Sound.Name],["Loop"] = true,["Time"] = 1})
         SoundManager.SoundStatus = "Playing" 
         self.WalkingSoundIsPlaying = true
     elseif self.WalkingSoundIsPlaying  and self.CurrentSound ~= nil and self.CurrentSound.Name ~= self.MaterialSound[Material] then
-        self.CurrentSound:Destroy()
-        self.WalkingSoundIsPlaying = false
+		warn("Stopping this sound ", self.CurrentSound.Name)
+		self:Stop(self.CurrentSound,{["Volume"] = 0})
+		self.WalkingSoundIsPlaying = false
     end
 
 end
 
-function SoundManager:GetSoundFromService(Name,Object)
+function SoundManager:GetSoundFromService(Name,Object,Type)
     local Found = false
 
 	for i,GetAudio in pairs(Sounds:GetDescendants()) do
@@ -101,7 +208,12 @@ function SoundManager:GetSoundFromService(Name,Object)
 
 			local Audio = Wanted_Audio:Clone()
 			Audio.Parent = Object
-			self.CurrentSound = Audio
+
+			if not Type then
+				self.CurrentSound = Audio
+			else
+				self.CurrentAmbient = Audio
+			end
 
 			
 			return Audio

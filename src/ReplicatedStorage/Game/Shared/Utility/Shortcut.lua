@@ -47,10 +47,10 @@ function Shortcut:SuperDebug(...)
 	end
 end
 
-function Shortcut:Getlength(table)
+function Shortcut:Getlength(Table)
 	local amount = 0;
 	
-	for name,info in pairs(table) do
+	for name,info in pairs(Table) do
 		amount += 1;
 	end
 
@@ -198,8 +198,7 @@ function Shortcut.SmoothLookAt(player,Target)
 end
 
 
-function Shortcut.LookAt(player,Target)
-	local Character : Instance;
+function Shortcut.LookAt(player,Target)	local Character : Instance;
 
 	if game.Players:FindFirstChild(player.Name) then
 		Character = player.Character

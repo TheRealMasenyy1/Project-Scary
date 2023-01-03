@@ -4,6 +4,7 @@ local player = game:GetService("Players").LocalPlayer
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
 
 local Events = ReplicatedStorage.Events
 local Camera = workspace.CurrentCamera
@@ -12,10 +13,16 @@ local Game_Folder = ReplicatedStorage.Game
 local Shared = Game_Folder.Shared
 local player_Events = Events.Player
 
+local SoundRegions = workspace.SoundRegion
+
 print("REQUIRED...")
-local Shortcut = require(Shared.Utility.Shortcut)
+local Zone = require(Shared.Utility.Zone)
 local soundmanager = require(Shared.Managers.SoundManager)
 local SoundManager = soundmanager.Setup(player)
+
+local filter = OverlapParams.new()
+filter.FilterType = Enum.RaycastFilterType.Blacklist
+filter.FilterDescendantsInstances = { workspace.SoundRegion }
 
 function LoopTime(Time)
 	local dt = 0
@@ -56,9 +63,9 @@ function SoundController:Play(SoundData)
 	elseif SoundName ~= nil and SoundLoop and not SoundParent:FindFirstChild(SoundName) then
 		local Sound = SoundManager:GetSoundFromService(SoundName, SoundParent)
 		local Time = SoundData["LoopTime"]
-		warn("This is the Sound | ", Sound)
+		-- warn("This is the Sound | ", Sound)
 		Sound.Looped = SoundLoop
-		Sound:Play()
+		Sound:Play()	 
 		SoundManager.SoundStatus = "Playing"
 
 		if Time then
@@ -80,28 +87,66 @@ player_Events.UseSound.OnClientEvent:Connect(function(SoundData)
     SoundController:Play(SoundData)
 end)
 
-coroutine.wrap(function()
+function SoundController:PlayAmbient()
+	for _,SoundRegions in pairs(SoundRegions:GetChildren()) do
+		if SoundRegions:IsA("Folder") then
+			local ZoneDetector = Zone.new(SoundRegions) 
+			ZoneDetector.name = SoundRegions.Name
+			ZoneDetector.localPlayerEntered:Connect(function(TEST,SECOND)
+				local Location = SoundRegions.name
+	
+				print(Location.." : Here")
+				--print(Location[1].Parent.Name)
+	
+				if Location ~= nil then
+					print(Location)
+					SoundManager:StartAmbient(Location,{["Volume"] = 0.017,["Parent"] = player.Character})
+					-- Last_Location = Location
+				end
+			end)
+		end
+	end
+end
 
-    RunService.RenderStepped:Connect(function()
+coroutine.wrap(function()
+    RunService.Heartbeat:Connect(function()
         if SoundManager.PlayWalkingSound and player.Character then
             local Origin = player.Character.HumanoidRootPart.Position
+			local Humanoid = player.Character.Humanoid
             local Direction = Vector3.new(0,-3,0)
-            local Raycast = Shortcut.RayCast(Origin,Direction,SoundManager.raycastParams)
+            -- local Raycast = Shortcut.RayCast(Origin,Direction,SoundManager.raycastParams)
 
             --Shortcut:CustomRayCast(player.Character,Direction,1)
-
-            if Raycast then
-                local Part,Material = Raycast.Instance,Raycast.Material
-                warn("The current ground | ", Material, " | ", Part.Name)
-                Part.Color = Color3.fromRGB(255,0,0)
-                SoundManager:GroundSound(player,Material.Name)
+			-- warn(player.Character.Humanoid.FloorMaterial)
+            if Humanoid.FloorMaterial and Humanoid.MoveDirection.Magnitude > 0 then
+                SoundManager:GroundSound(player,Humanoid.FloorMaterial.Name)
+			elseif SoundManager.CurrentSound and Humanoid.MoveDirection.Magnitude == 0 then
+				SoundManager:Stop(SoundManager.CurrentSound,{["Volume"] = 0})
+				SoundManager.WalkingSoundIsPlaying = false
             end
             
             --workspace.Debris:ClearAllChildren()
         end
+
     end)
 
+	SoundController:PlayAmbient()
 end)()
 
+
+--[[
+		Zone.localPlayerEntered:Connect(function(TEST,SECOND)
+			local Location = GetSoundZones.name
+
+			print(Last_Location.." : "..GetSoundZones.name)
+			--print(Location[1].Parent.Name)
+
+			if Location ~= nil then
+				print(Location)
+				Sound:GetAudio(Location)
+				Last_Location = Location
+			end
+		end)
+]]--
 
 return SoundController
