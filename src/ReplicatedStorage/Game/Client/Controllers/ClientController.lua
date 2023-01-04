@@ -18,17 +18,13 @@ local player_Events = Events.Player
 local CameraManager = require(Shared.Managers.CameraManager)
 local Camera = CameraManager.Setup(Character)
 
+local HeartIsBeating = false
+
 
 function ToolController(Tool)
     if Tool:IsA("Tool") then
         local Folder = Tool.Folder
         local IsOn = false
-
-        local Lantern = Tool.lantern
-        local Handle = Tool.Handle
-        local Body = Lantern.Body
-        -- local Weld = Handle.Weld
-        -- local Angle = 0
 
         local Animation = player.Character.Humanoid.Animator:LoadAnimation(Animations[Tool:GetAttribute("Idle")])
         Animation:Play()
@@ -60,65 +56,87 @@ function ToolController(Tool)
                 Folder.Event:FireServer()
             end
 
-            
-
         end)
-        coroutine.wrap(function()
-            -- local min = 10
-            -- local max = 60
-            -- local isMax = false
-            -- local weldC1 = Weld.C1
-            -- RunService.RenderStepped:Connect(function()
-            --     local State = Character.Humanoid:GetState()
-            --     local X = math.clamp(Angle,-60,60)
 
-            --     warn(State)
-            --     if State == Enum.HumanoidStateType.Running then
-            --         if Angle >= max then
-            --             isMax = true
-            --         elseif Angle <= min then
-            --             isMax = false
-            --         end
-                    
-            --         if isMax then
-            --             Angle -= .5
-            --         else
-            --             Angle += .5              
-            --         end
-            --     end
-
-            --     warn(Angle)
-            --     Weld.C1 = Weld.C1:Lerp((weldC1 * CFrame.new(0,1.6,-.1)) * CFrame.Angles(math.rad(X),0,math.rad(90)),1)
-
-            --     --Weld.C1 = Weld.C1:Lerp(CFrame.new(Weld.C1.Position) * CFrame.Angles(math.rad(X),0,math.rad(90)),.2)
-            --     -- Weld.Part1.CFrame = Weld.Part1.CFrame * 
-            -- end)
-        end)()
 
     end
 end
 
-Character.ChildAdded:Connect(ToolController)
 
-UserInputService.InputEnded:Connect(function(input)
+function CameraStop()
+    warn("BROOOOO WORK WORK WORK")
+    ClientController:StopSprint()
+end
+
+function ClientController:Sprint(playerdata)
+    local Stamina = playerdata["Stamina"]
+    Camera.WobbleSpeed = 8
+    Camera.Multiplier = .25
+
+    player_Events.Sprint:FireServer("Sprint")
+    HeartIsBeating = true
+
+    -- coroutine.wrap(function()
+    --     while HeartIsBeating do
+    --         if (Stamina/1000) < 1 then
+    --             print(Stamina/1000)
+    --             -- player_Events.PlayStaminaSound:Invoke(Stamina/100)
+    --         end
+    --         task.wait(.7)
+    --     end
+    -- end)()
+end
+
+function ClientController:StopSprint()
+    local playerdata = player_Events.getPlayerdata:InvokeServer()
+    local Stamina = playerdata["Stamina"]
+    Camera.WobbleSpeed = 5
+    Camera.Multiplier = .1
+
+    player_Events.Sprint:FireServer("Stop")
+    HeartIsBeating = false
+
+    -- player_Events.Sounds.StopStaminaSound:Invoke(Stamina/100)
+end
+
+UserInputService.InputEnded:Connect(function(input,ingame)
     local Key = input.KeyCode.Name
-
-    if Key == "LeftControl" then
-        Camera.IsLookingAround = false
-        warn("IsLooking around")
+    local playerdata = player_Events.getPlayerdata:InvokeServer()
+    local Inputs  = playerdata["Inputs"]
+    if not ingame then    
+        warn(Inputs)
+        if Key == "LeftControl" then
+            Camera.IsLookingAround = false
+            warn("IsLooking around")
+        end
+            
+        if Inputs[Key] then
+            ClientController:StopSprint()
+        end
     end
 end)
 
 UserInputService.InputBegan:Connect(function(input,ingame)
     local Key = input.KeyCode.Name
+    local playerdata = player_Events.getPlayerdata:InvokeServer()
+    local Inputs  = playerdata["Inputs"]
+    if not ingame then   
+        
+        --warn(Inputs)
+        if Inputs[Key] then
+            ClientController:Sprint(playerdata)
+        end
 
-    if Key == "LeftControl" then
-        Camera.IsLookingAround = true
-        warn("IsLooking around")
+        if Key == "LeftControl" then
+            Camera.IsLookingAround = true
+            warn("IsLooking around")
+        end
+
     end
-
     print(Key)
 end)
 
+Character.ChildAdded:Connect(ToolController)
+player_Events.ResetCamera.OnClientEvent:Connect(CameraStop)
 
 return ClientController

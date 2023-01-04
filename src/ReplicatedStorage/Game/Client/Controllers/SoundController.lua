@@ -78,21 +78,52 @@ function SoundController:Play(SoundData)
 	end
 end
 
+function SoundController:PlayStamina(Stamina)
+	local HeartSound = SoundManager:GetSoundFrom(player.Character,"HeartBeatSound")
 
-player_Events.PlaySound.OnInvoke = function(SoundData)
-    SoundController:Play(SoundData)
+	if not HeartSound then
+		local HeartBeat = SoundManager:GetSoundFromService("HeartBeatSound",player.Character,"player")
+		HeartBeat:Play()
+		SoundManager.CurrentPlayerSound[HeartBeat.Name] = HeartBeat
+		--SoundManager:Play(HeartBeat,{["Volume"] = .7,["Loop"] = false,["Time"] = 3})
+
+	elseif HeartSound and (Stamina/20) < 1 then
+		-- warn("How much we're adding ",Stamina)
+		if not HeartSound.IsPlaying then
+			HeartSound:Play()
+		end
+
+		HeartSound.Volume = Stamina
+		SoundManager:ChangeSoundSpeed(HeartSound,Stamina/20)
+		-- HeartSound.PLaybackSpeed += Stamina/10
+	end
+	-- warn("How much we're adding ",Stamina)
+
 end
 
-player_Events.UseSound.OnClientEvent:Connect(function(SoundData)
-    SoundController:Play(SoundData)
-end)
+function SoundController:StopStamina(Stamina) --! Everything here should actually be adpted to the current stamina the player has which it's not
+	local HeartSound = SoundManager:GetSoundFrom(player.Character,"HeartBeatSound")
+
+
+	if HeartSound then
+		SoundManager:ChangeSoundSpeed(HeartSound,-Stamina/20)
+		HeartSound.Volume = Stamina
+		if (Stamina) <= 0 then
+			HeartSound:Destroy()
+			-- SoundManager:StopPlayerSound(SoundManager.Name,1)
+		end
+		-- SoundManager:Stop(HeartSound,{["Volume"] = 0,["Time"] = 2})
+		-- HeartSound.PLaybackSpeed += Stamina/10
+	end
+
+end
 
 function SoundController:PlayAmbient()
 	for _,SoundRegions in pairs(SoundRegions:GetChildren()) do
 		if SoundRegions:IsA("Folder") then
 			local ZoneDetector = Zone.new(SoundRegions) 
 			ZoneDetector.name = SoundRegions.Name
-			ZoneDetector.localPlayerEntered:Connect(function(TEST,SECOND)
+			ZoneDetector.localPlayerEntered:Connect(function()
 				local Location = SoundRegions.name
 	
 				print(Location.." : Here")
@@ -100,7 +131,7 @@ function SoundController:PlayAmbient()
 	
 				if Location ~= nil then
 					print(Location)
-					SoundManager:StartAmbient(Location,{["Volume"] = 0.017,["Parent"] = player.Character})
+					SoundManager:StartAmbient(Location,{["Volume"] = 0.2,["Parent"] = player.Character})
 					-- Last_Location = Location
 				end
 			end)
@@ -111,13 +142,8 @@ end
 coroutine.wrap(function()
     RunService.Heartbeat:Connect(function()
         if SoundManager.PlayWalkingSound and player.Character then
-            local Origin = player.Character.HumanoidRootPart.Position
 			local Humanoid = player.Character.Humanoid
-            local Direction = Vector3.new(0,-3,0)
-            -- local Raycast = Shortcut.RayCast(Origin,Direction,SoundManager.raycastParams)
 
-            --Shortcut:CustomRayCast(player.Character,Direction,1)
-			-- warn(player.Character.Humanoid.FloorMaterial)
             if Humanoid.FloorMaterial and Humanoid.MoveDirection.Magnitude > 0 then
                 SoundManager:GroundSound(player,Humanoid.FloorMaterial.Name)
 			elseif SoundManager.CurrentSound and Humanoid.MoveDirection.Magnitude == 0 then
@@ -133,6 +159,22 @@ coroutine.wrap(function()
 	SoundController:PlayAmbient()
 end)()
 
+
+player_Events.PlaySound.OnInvoke = function(SoundData)
+    SoundController:Play(SoundData)
+end
+
+player_Events.Sounds.StopStaminaSound.OnInvoke = function(Stamina)
+	SoundController:StopStamina(Stamina)
+end
+
+player_Events.Sounds.PlayStaminaSound.OnInvoke = function(Stamina)
+	SoundController:PlayStamina(Stamina)
+end
+
+player_Events.UseSound.OnClientEvent:Connect(function(SoundData)
+    SoundController:Play(SoundData)
+end)
 
 --[[
 		Zone.localPlayerEntered:Connect(function(TEST,SECOND)

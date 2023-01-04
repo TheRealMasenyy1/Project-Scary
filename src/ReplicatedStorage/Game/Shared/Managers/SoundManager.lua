@@ -30,6 +30,7 @@ function SoundManager.Setup(player)
 
 	self.CurrentSound = nil;
 	self.CurrentAmbient = nil;
+	self.CurrentPlayerSound = {};
 	self.SoundStatus = nil;
     self.PlayWalkingSound = true;
 	self.AmbientSounds = {};
@@ -131,6 +132,20 @@ function SoundManager:Play(Sound,Data)
 	end)
 end
 
+function SoundManager:StopPlayerSound(Name,Time)
+	local Sound = self.CurrentPlayerSound[Name]
+	Name = Name or nil
+	Time = Time or 2
+
+	if Sound then
+		-- SoundManager:Stop(Sound,{["Volume"] = 0,["Time"] = Time})
+		self.CurrentPlayerSound[Name] = nil
+		return true
+	end
+
+	return false
+end
+
 function SoundManager:Stop(Sound,Data)
 	local VolumeTo = Data["Volume"] or 0
 	local TimeToWait = Data["Time"] or .5
@@ -141,17 +156,39 @@ function SoundManager:Stop(Sound,Data)
 	local Tween = TweenService:Create(Sound,TweenInformation,ChangeVolume)
 	Tween:Play()
 
-	warn("Changing Volume of ", Sound.Name)
+	--warn("Changing Volume of ", Sound.Name)
 
 	Tween.Completed:Connect(function()
 		-- if Data["Destroy"] then
 		-- 	Sound:Destroy()
 		-- 	-- self.AmbientSound
 		-- end
-		task.wait(1)
+		task.wait(TimeToWait)
 		Sound:Destroy()
 		Tween:Destroy()
 	end)
+end
+
+function SoundManager:GetSoundFrom(Object,SoundName)
+	local Sound = Object:FindFirstChild(SoundName)
+
+	if Sound then
+		return Sound
+	else
+		warn("Couldn't Find the Sound | ", SoundName, " |")
+	end
+
+	return nil
+end
+
+function SoundManager:ChangeSoundSpeed(Sound,Speed)
+	if Sound then
+		warn("Stopping the sound ",Speed)
+		Sound.PlaybackSpeed += Speed
+		return Sound
+	end
+
+	return nil
 end
 
 function SoundManager:StartAmbient(Name,Data)
@@ -169,7 +206,7 @@ function SoundManager:StartAmbient(Name,Data)
 			if Sounds then
 				self:Stop(Sounds,{["Volume"] = 0})
 			end
-
+			
 			local Sound = self:GetSoundFromService(Name, Data["Parent"])
 			self.AmbientSounds[Name] = Sound
 			self:Play(Sound,Data)
@@ -189,7 +226,7 @@ function SoundManager:GroundSound(player,Material)
         SoundManager.SoundStatus = "Playing" 
         self.WalkingSoundIsPlaying = true
     elseif self.WalkingSoundIsPlaying  and self.CurrentSound ~= nil and self.CurrentSound.Name ~= self.MaterialSound[Material] then
-		warn("Stopping this sound ", self.CurrentSound.Name)
+		--warn("Stopping this sound ", self.CurrentSound.Name)
 		self:Stop(self.CurrentSound,{["Volume"] = 0})
 		self.WalkingSoundIsPlaying = false
     end
@@ -200,7 +237,7 @@ function SoundManager:GetSoundFromService(Name,Object,Type)
     local Found = false
 
 	for i,GetAudio in pairs(Sounds:GetDescendants()) do
-		local Wanted_Audio = GetAudio:FindFirstChild(Name)
+		local Wanted_Audio = GetAudio:FindFirstChild(Name) or Sounds:FindFirstChild(Name)
 
 		if Wanted_Audio and Found == false then
 
@@ -211,6 +248,8 @@ function SoundManager:GetSoundFromService(Name,Object,Type)
 
 			if not Type then
 				self.CurrentSound = Audio
+			elseif Type == "player" then
+				self.CurrentPlayerSound = Audio
 			else
 				self.CurrentAmbient = Audio
 			end

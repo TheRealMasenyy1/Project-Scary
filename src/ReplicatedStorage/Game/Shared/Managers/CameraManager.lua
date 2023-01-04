@@ -20,9 +20,11 @@ function CameraManager.Setup(Character)
 
     self.IsActivated = true;
     self.FOV = 70;
-    self.ShowMouse = false
+    self.ShowMouse = true
     self.LockMouse = true;
     self.IsLookingAround = false;
+    self.WobbleSpeed = 5 -- Changes the how strong the camera wobbles
+    self.Multiplier = .1 -- Changes the speed of the camera wobble
     self.FIRST_PERSON_OFFSET = Vector3.new(0, 1.5, -.5)
     self.PartsToShow = {
         ["RightUpperArm"] = true;
@@ -35,31 +37,30 @@ function CameraManager.Setup(Character)
     -- Camera.
 
     coroutine.wrap(function()
-        self:SetView(Character)
-        
+        local xRot = 0
+        local yRot = 0
 		local raycastParams = RaycastParams.new()
 		raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
 		raycastParams.FilterDescendantsInstances = {Character}
 		raycastParams.IgnoreWater = false
 
         Camera.CameraType = Enum.CameraType.Scriptable
-        Camera.CameraSubject = Character.Head
-        local xRot = 0
-        local yRot = 0
+        self:SetView(Character)
+        Mouse.Icon = "rbxassetid://12029359473"
 
         RunService.RenderStepped:Connect(function()
 
             if Character then
                 local RightUpperArm = Character.RightUpperArm
                 local RightShoulder = RightUpperArm.RightShoulder
-
-                local Mouse = UserInputService:GetMouseLocation()
+                Camera.CameraSubject = Character.Head
+                -- local Mouse = UserInputService:GetMouseLocation()
                 local Delta = UserInputService:GetMouseDelta()
                 xAngle = xAngle - Delta.X
                 yAngle = math.clamp(yAngle - Delta.Y, -80, 80)
 
                 local HumanoidRootPart = Character:FindFirstChild("HumanoidRootPart")
-                
+                local Head = Character:FindFirstChild("HumanoidRootPart")
                 if HumanoidRootPart then
                     -- warn("X: ",xAngle,"Y: ",yAngle)
                     local StartPosition = HumanoidRootPart.CFrame * self.FIRST_PERSON_OFFSET
@@ -77,8 +78,8 @@ function CameraManager.Setup(Character)
 
                     if not self.IsLookingAround then --! Add so that camera returns to the prviouse position
                         local Y = math.clamp(yAngle,0,180) --! Max = -20
-                        local WobbleX = math.cos(currentTime * 5) * .1
-                        local WobbleY = math.abs(math.sin(currentTime * 5)) * .1
+                        local WobbleX = math.cos(currentTime * self.WobbleSpeed) * self.Multiplier
+                        local WobbleY = math.abs(math.sin(currentTime * self.WobbleSpeed)) * self.Multiplier
 
                         Camera.CameraSubject = Character.Head
 

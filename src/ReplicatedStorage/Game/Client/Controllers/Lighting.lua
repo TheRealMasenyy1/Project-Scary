@@ -19,6 +19,11 @@ function Lighting:HauntedMode()
         ["EnvironmentSpecularScale"] = 0;
     }    
 
+    for _,LightEffects in pairs(GameLighting.PlayerEffects:GetChildren()) do
+        local Clones = LightEffects:Clone()
+        Clones.Parent = GameLighting
+    end
+
     for Name,Value in pairs(Prop) do
         GameLighting[Name] = Value
     end
